@@ -20,21 +20,23 @@ isError = False
 #------------------------------------------------------------------------------
                 # Set variables that could change
 
-#Below are the (1) location for the folder you want to zip, and (2) the location
-#The zip file is going to be placed on the dev machine
-inputZipFile = r"\\VMGISDEV04\D$\arcgisserver\directories\arcgiscache\PUD_CompassGIS_PUD_Basemap_Cache_Publish\PUD GIS Basemap\_alllayers\L09"
-outputZipLoc = r"\\VMGISDEV04\D$\arcgisserver\directories\arcgiscache\PUD_CompassGIS_PUD_Basemap_Cache_Publish\PUD GIS Basemap\NewCache"
+#Below are the locations for (1) the location you want to put the zip file
+#This location is just one folder level above the file you want to zip
+#(2) The location of the folder you want to zip
+outputZipLoc = r"\\vmgisdev04\D$\arcgisserver\directories\arcgiscache\PUD_CompassGIS_PUD_Basemap_Cache_Publish"
+inputZipFile = outputZipLoc + r"\PUD GIS Basemap"
 
-#Belos are the locations (1) where you want the new zip file to be placed
+
+#Below are the locations (1) where you want the new zip file to be placed
 #(2) where you want the zip file to be unzipped to (with a _NEW appended to it)
 #(3) the path / name of the current cache file on prod that you are going to
 #    rename to _OLD to act as a backup
-newZipLoc = r"C:\Users\mgrue\Quartic\Scripts\MoveFiles\newzip.zip"
-unZipLoc = r'C:\Users\mgrue\Quartic\Scripts\MoveFiles\CacheFile_NEW'
-oldCacheFile = r"C:\Users\mgrue\Quartic\Scripts\MoveFiles\CacheFile"
+newZipLoc =    r"\\vmgisprod04\D$\arcgisserver\directories\arcgiscache\PUD_CompassGIS_PUD_Basemap_Cache\CacheFromDev.zip"
+unZipLoc =     r"\\vmgisprod04\D$\arcgisserver\directories\arcgiscache\PUD_CompassGIS_PUD_Basemap_Cache\CacheFromDev"
+oldCacheFile = r"\\vmgisprod04\D$\arcgisserver\directories\arcgiscache\PUD_CompassGIS_PUD_Basemap_Cache\PUD GIS Basemap"
 
 #Where you want the log file to be placed
-fileLog = r'C:\Users\mgrue\Quartic\Scripts\MoveFiles\MoveBasemapCache.log'
+fileLog = r'\\vmgisprod04\e$\Data\PUD_CompassGIS\LocalExtractedFGDBs\Scripts\MoveBasemapCache.log'
 
 #------------------------------------------------------------------------------
 
@@ -114,7 +116,35 @@ if isError == False:
         isError = True
 
 
-#Enter the email services here
+# Setup Email notification
+try:
+    sender = 'vmgisprod04@sannet.gov'
+    receivers = ['mike@quarticsolutions.com'] #'chris@quarticsolutions.com','tyler@quarticsolutions.com','drew@quarticsolutions.com', 'rob@quarticsolutions.com', 'timo@quarticsolutions.com']
+
+    if isError == False:
+        Subject = "MoveBasemapCache.py ran successfully"
+        EmailText = ("MoveBasemapCache.py ran successfully")
+    else:
+        Subject = "Error with MoveBasemapCache.py"
+        EmailText = ("Please check log at:\n" + fileLog + '\n for explanation.')
+except Exception as e:
+        logging.error('ERROR: Email not sent!')
+        logging.error('ERROR: ' + str(e))
+
+message = """\
+From: %s
+To: %s
+Subject: %s
+
+%s
+""" % (sender, ", ".join(receivers), Subject, EmailText)
+
+try:
+    smtpObj = smtplib.SMTP('smtp-out.sannet.gov')
+    smtpObj.sendmail(sender,receivers, message)
+except Exception as e:
+    logging.error('Email NOT sent!' + str(e))
+
 
 logging.info('--------------------------------------------------------------')
 logging.info('                  ' + str(datetime.now()))
