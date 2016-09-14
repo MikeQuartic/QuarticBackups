@@ -26,7 +26,7 @@ Licence:     <your licence>
 """
 #-------------------------------------------------------------------------------
 
-import arcpy, logging, os
+import arcpy, logging, os, shutil
 from datetime import datetime
 arcpy.env.overwriteOutput = True
 
@@ -72,19 +72,37 @@ success = True
 
 #The order of the two below lists is important since they will both be
 #controlled with an index 'i'
-FGDB_fds = [          'RWATER',          'SEWER',          'WATER',          'GRID',           'SANGIS']
-ATLAS_fds = ['SDW.CITY.RWATER', 'SDW.CITY.SEWER', 'SDW.CITY.WATER', 'SDW.CITY.GRID',  'SDW.CITY.SANGIS']
+FGDB_fds = [          'WATER',          'RWATER',          'SEWER',          'GRID',           'SANGIS']
+ATLAS_fds = ['SDW.CITY.WATER', 'SDW.CITY.RWATER', 'SDW.CITY.SEWER', 'SDW.CITY.GRID',  'SDW.CITY.SANGIS']
 
 #Below is a list of all the feature classes that were in the original FGDB
 #that I tried to get from ATLAS.
 #NOTE: Any of the uncapitalized FC's are NOT in ATLAS and couldn't be coppied
 #over.  If we need these layers on the StandAlone.mxd, then the City should
 #put them on ATLAS.
+
+WATER_FC = ['W_AIR_VALVE', 'W_AQUEDUCT', 'W_BACK_FLOW', 'W_BLOW_OFF', 'W_CAP',
+'W_CHANNEL', 'W_DAM', 'W_DISTRIBUTION_RESERVOIR', 'W_DIVERSION_CONNECTION',
+'W_FILTRATION_PLANT', 'W_FLUME', 'W_HGL', 'W_HYDRANT',
+'W_HYDRANT_REMOVED_ABANDONED', 'W_METER', 'W_OUTLET_TOWER', 'W_PIPE',
+'W_PITOT_TAP', 'W_PUMP', 'W_PUMP_STATION', 'W_RAW_WATER_RESERVOIR', 'W_REDUCER',
+'W_REGULATING_RESERVOIR', 'W_REGULATOR_REMOVED_ABANDONED', 'W_REGULATOR_VALVE',
+'W_SAMPLE_LOCATION', 'W_SERVICE', 'W_STATION', 'W_STATIONP', 'W_STBL', 'W_TANK',
+'W_TUNNEL', 'W_VALVE', 'W_VALVE_REMOVED_ABANDONED', 'W_WEIR', 'W_WELL']
+
 RWATER_FC = ['RWTR_AIR_VALVE', 'RWTR_BACK_FLOW', 'RWTR_BLOW_OFF', 'RWTR_CAP',
 'RWTR_HGL', 'RWTR_METER', 'RWTR_PIPE', 'RWTR_PUMP', 'RWTR_PUMP_STATION',
 'RWTR_REDUCER', 'RWTR_REGULATOR_VALVE', 'RWTR_SAMPLE_LOCATION', 'RWTR_SERVICE',
 'RWTR_STABILIZING_STRUCTURE', 'RWTR_STATION', 'RWTR_STATIONP', 'RWTR_TANK',
 'RWTR_VALVE']
+
+SEWER_FC = ['S_AIR_VALVE', 'S_BLOW_OFF', 'S_CLEAN_OUT', 'S_CYN_ACCESS_PATHS',
+'S_LATERAL', 'S_LATERAL_REMOVED_ABANDONED', 'S_MAIN', 'S_MAIN_FLOWARROW',
+'S_MAIN_REMOVED_ABANDONED', 'S_MANHOLE', 'S_MANHOLE_REMOVED_ABANDONED',
+'S_METER', 'S_PLUG', 'S_PUMP', 'S_PUMPSTA', 'S_PUMPSTN', 'S_REDUCER',
+'S_STATION', 'S_STBL', 'S_TANK', 'S_TREATMENT_PLANT', 'S_VALVE']
+
+GRID_FC = ['FIELD_BOOK']
 
 SANGIS_FC = ['ADDRAPN', 'AIR_RUNWAYS', 'CULTURE_POINTS_TB',
 'FACILITIES_MILITARY', 'FIRE_STATION', 'HOSPITAL', 'HYD_LAKE', 'HYD_RIVERS',
@@ -100,31 +118,14 @@ SANGIS_FC = ['ADDRAPN', 'AIR_RUNWAYS', 'CULTURE_POINTS_TB',
 'ws_cathodic_site_current_water_location', 'ws_cp_test_station', 'ws_cp_wire',
 'ws_jumpover']
 
-SEWER_FC = ['S_AIR_VALVE', 'S_BLOW_OFF', 'S_CLEAN_OUT', 'S_CYN_ACCESS_PATHS',
-'S_LATERAL', 'S_LATERAL_REMOVED_ABANDONED', 'S_MAIN', 'S_MAIN_FLOWARROW',
-'S_MAIN_REMOVED_ABANDONED', 'S_MANHOLE', 'S_MANHOLE_REMOVED_ABANDONED',
-'S_METER', 'S_PLUG', 'S_PUMP', 'S_PUMPSTA', 'S_PUMPSTN', 'S_REDUCER',
-'S_STATION', 'S_STBL', 'S_TANK', 'S_TREATMENT_PLANT', 'S_VALVE']
-
-WATER_FC = ['W_AIR_VALVE', 'W_AQUEDUCT', 'W_BACK_FLOW', 'W_BLOW_OFF', 'W_CAP',
-'W_CHANNEL', 'W_DAM', 'W_DISTRIBUTION_RESERVOIR', 'W_DIVERSION_CONNECTION',
-'W_FILTRATION_PLANT', 'W_FLUME', 'W_HGL', 'W_HYDRANT',
-'W_HYDRANT_REMOVED_ABANDONED', 'W_METER', 'W_OUTLET_TOWER', 'W_PIPE',
-'W_PITOT_TAP', 'W_PUMP', 'W_PUMP_STATION', 'W_RAW_WATER_RESERVOIR', 'W_REDUCER',
-'W_REGULATING_RESERVOIR', 'W_REGULATOR_REMOVED_ABANDONED', 'W_REGULATOR_VALVE',
-'W_SAMPLE_LOCATION', 'W_SERVICE', 'W_STATION', 'W_STATIONP', 'W_STBL', 'W_TANK',
-'W_TUNNEL', 'W_VALVE', 'W_VALVE_REMOVED_ABANDONED', 'W_WEIR', 'W_WELL']
-
-GRID_FC = ['FIELD_BOOK']
-
 #Below is a list of all of the feature classes that will participate in the
 #Geometric network.  We will want to create a field ENABLED and populate it
 #based on the FNCTNL_CD field.
 in_geom_net = ['RWTR_CAP', 'RWTR_METER', 'RWTR_PIPE', 'RWTR_PUMP',
 'RWTR_REDUCER', 'RWTR_REGULATOR_VALVE', 'RWTR_SERVICE', 'RWTR_VALVE',
 'S_CLEAN_OUT', 'S_LATERAL', 'S_MAIN', 'S_MANHOLE', 'S_METER', 'S_PLUG',
-'S_PUMP', 'S_REDUCER', 'S_VALVE','W_AQUEDUCT','W_CAP', 'W_CHANNEL', 'W_FLUME',
-'W_HYDRANT','W_METER','W_PIPE_ALL''W_PUMP', 'W_REDUCER', 'W_REGULATOR_VALVE',
+'S_PUMP', 'S_REDUCER', 'S_VALVE', 'W_AQUEDUCT', 'W_CAP', 'W_CHANNEL', 'W_FLUME',
+'W_HYDRANT','W_METER', 'W_PIPE', 'W_PUMP', 'W_REDUCER', 'W_REGULATOR_VALVE',
 'W_SERVICE', 'W_VALVE']
 
 #-------------------------------------------------------------------------------
@@ -163,6 +164,7 @@ def createNewFGDB():
     print '\n'
     logging.info('\n')
 #-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 #                Copy the features from ATLAS to the local FGDB
 def copyFeatures(fc, fc_truncate):
 
@@ -173,6 +175,7 @@ def copyFeatures(fc, fc_truncate):
     out_feature_class = newFGDB_loc + '\\' + FGDB_fds[i] + '\\' + fc_truncate
 
     arcpy.CopyFeatures_management(in_features, out_feature_class)
+#-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 #                      Create the ENABLED field
 def createENABLED(fc_truncate):
@@ -217,6 +220,72 @@ def calculateENABLED(fc_truncate):
 
     arcpy.CalculateField_management(in_table, field, expression, expression_type,
                                 code_block)
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#                      Create the 'Operable' field
+def createOperable(fc_truncate):
+
+    print '    ' + fc_truncate + ' Creating Operable field.'
+    logging.info('    ' + fc_truncate + ' Creating Operable field.')
+
+    in_table = newFGDB_loc + '\\' + FGDB_fds[i] + '\\' + fc_truncate
+    field_name = 'Operable'
+    field_type = 'SHORT'
+    field_precision = ''
+    field_scale = ''
+    field_length = ''
+    field_alias = 'Operable'
+    field_is_nullable = 'NULLABLE'
+    field_is_required = 'NON_REQUIRED'
+    field_domain = ''
+
+    arcpy.AddField_management (in_table, field_name, field_type,
+                         field_precision, field_scale, field_length,
+                         field_alias, field_is_nullable,
+                         field_is_required, field_domain)
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#                     Calculate the 'Operable' field
+def calculateOperable(fc_truncate):
+
+    print '    Calculating Operable field for: ' + fc_truncate + '\n'
+    logging.info('    Calculating Operable field for: ' + fc_truncate + '\n')
+
+    in_table = newFGDB_loc + '\\' + FGDB_fds[i] + '\\' + fc_truncate
+    field="Operable"
+    expression="getFunctional(str(!FNCTNL_CD!))"
+    expression_type="PYTHON_9.3"
+    code_block="""def getFunctional(value):
+        if value == 'Y':
+            return 1
+        else:
+            return 0"""
+
+    arcpy.CalculateField_management(in_table, field, expression, expression_type,
+                                code_block)
+
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#       Check to see if 'sdw_old.gdb' currently exists and delete it if it does
+#            so that we can rename the current 'sdw.gdb' to 'sdw_old.gdb'
+def delete_existing_sdw_old(currentData_file_loc):
+
+    currentFileName = currentData_file_loc + '\\' + 'sdw_old.gdb'
+    print 'Checking to see if FGDB sdw_old.gdb currently exists...'
+    logging.info('Checking to see if FGDB sdw_old.gdb currently exists...')
+
+    if os.path.exists(currentFileName):
+        print 'sdw_old.gdb currently exists, deleting sdw_old.gdb'
+        logging.info('sdw_old.gdb currently exists, deleting sdw_old.gdb')
+
+        #Process
+        shutil.rmtree(currentFileName)
+
+    else:
+        print 'sdw_old.gdb does NOT exist, no need to delete.'
+        logging.info('sdw_old.gdb does NOT exist, no need to delete.')
 
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
@@ -352,6 +421,31 @@ try:
                 else:
                     print ''
                     logging.info('')
+
+                if (fc_truncate == 'W_VALVE'):
+                     #Create the Operable field needed for the secondary trace tool
+                     #for the 'W_VALVE' feature class
+                    try:
+                        createOperable(fc_truncate)
+
+                    except Exception as e:
+                        print 'createOperable function failed'
+                        logging.info('createOperable function failed')
+                        print str(e)
+                        logging.info(str(e))
+                        success = False
+
+                    #Calculate Operable field
+                    try:
+                        calculateOperable(fc_truncate)
+
+                    except Exception as e:
+                        print 'calculateOperable function failed'
+                        logging.info('calculateOperable function failed')
+                        print str(e)
+                        logging.info(str(e))
+                        success = False
+
             else:
                 pass
         print '\n'
@@ -361,6 +455,17 @@ try:
     #---------------------------------------------------------------------------
     #Now that there is a local FGDB we want to rename both the current 'sdw.gdb'
     #and the 'sdw_new.gdb'
+
+    #First delete the existing 'sdw_old.gdb' if it exists
+    try:
+        delete_existing_sdw_old(currentData_file_loc)
+
+    except Exception as e:
+        print 'delete_existing_sdw_old function failed.'
+        logging.info('delete_existing_sdw_old function failed')
+        print str(e)
+        logging.info(str(e))
+        success = False
 
     #Rename the current 'sdw.gdb' to 'sdw_old.gdb'
     try:
